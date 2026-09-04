@@ -15,7 +15,7 @@ BarWidget {
     text: "P"
     fontFamily: root.bar ? root.bar.fontFamily : "monospace"
     horizontalMargin: 8
-    tooltipText: "Open ProtOmaView"
+    tooltipText: "ProtOmaView"
     onPressed: function(buttonCode) {
       if (!root.bar || buttonCode !== Qt.LeftButton) return
       root.bar.run("omarchy-shell shell toggle io.github.samplebias.protomaview '{}'")
