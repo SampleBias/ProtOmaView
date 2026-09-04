@@ -37,7 +37,7 @@ BarWidget {
       anchors.fill: iconSource
       source: iconSource
       colorization: 1
-      colorizationColor: button.foreground
+      colorizationColor: "#eef1ff"
     }
 
     onPressed: function(buttonCode) {
