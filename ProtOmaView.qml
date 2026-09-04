@@ -100,84 +100,73 @@ Item {
     viewer.requestPaint()
   }
 
-  function smoothPath(ctx, points) {
-    if (!points || points.length < 2) return false
-    ctx.beginPath()
-    ctx.moveTo(points[0].x, points[0].y)
-    for (var i=1; i<points.length-1; i++) {
-      var mx=(points[i].x+points[i+1].x)/2
-      var my=(points[i].y+points[i+1].y)/2
-      ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my)
-    }
-    ctx.lineTo(points[points.length-1].x, points[points.length-1].y)
-    return true
+  function rotatePoint(x, y, z, cx, sx, cy, sy) {
+    var rx=x*cy+z*sy, rz=-x*sy+z*cy
+    var ry=y*cx-rz*sx
+    rz=y*sx+rz*cx
+    return {x:rx, y:ry, z:rz}
   }
 
-  function drawCartoonRibbon(ctx, points, color, ribbonWidth) {
-    if (!smoothPath(ctx, points)) return
-    ctx.globalAlpha=0.5
-    ctx.strokeStyle="#05070d"
-    ctx.lineWidth=ribbonWidth+4
-    ctx.stroke()
-    smoothPath(ctx, points)
-    ctx.globalAlpha=0.96
-    ctx.strokeStyle=color
-    ctx.lineWidth=ribbonWidth
-    ctx.stroke()
-    smoothPath(ctx, points)
-    ctx.globalAlpha=0.22
-    ctx.strokeStyle="#ffffff"
-    ctx.lineWidth=Math.max(1, ribbonWidth*0.18)
-    ctx.stroke()
+  function shadePaint(color, shade) {
+    var r, g, b
+    if (typeof color === "string") {
+      var h=color.charAt(0)==="#"?color.substring(1):color
+      if (h.length===3) h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2)
+      r=parseInt(h.substring(0,2),16)/255
+      g=parseInt(h.substring(2,4),16)/255
+      b=parseInt(h.substring(4,6),16)/255
+    } else {
+      r=color.r; g=color.g; b=color.b
+    }
+    var k=0.26+0.74*Math.max(0, Math.min(1, shade))
+    var spec=Math.max(0, shade-0.78)*0.28
+    return Qt.rgba(Math.min(1,r*k+spec), Math.min(1,g*k+spec), Math.min(1,b*k+spec), 1)
+  }
 
-    if (points.length < 3) return
-    var tip=points[points.length-1], from=points[points.length-2]
-    var dx=tip.x-from.x, dy=tip.y-from.y, length=Math.sqrt(dx*dx+dy*dy)
-    if (length < 0.1) return
-    dx/=length; dy/=length
-    var nx=-dy, ny=dx, head=Math.max(8,ribbonWidth*1.45), half=Math.max(5,ribbonWidth*0.72)
-    ctx.beginPath()
-    ctx.moveTo(tip.x+dx*head*0.55,tip.y+dy*head*0.55)
-    ctx.lineTo(tip.x-dx*head+nx*half,tip.y-dy*head+ny*half)
-    ctx.lineTo(tip.x-dx*head-nx*half,tip.y-dy*head-ny*half)
-    ctx.closePath()
-    ctx.globalAlpha=0.96; ctx.fillStyle=color; ctx.fill()
+  function drawCartoon(ctx, width, height, scale, cx, sx, cy, sy, chainMap) {
+    var faces=root.structure.cartoon || []
+    if (!faces.length) return
+    var lx=-0.32, ly=0.78, lz=0.54
+    var llen=Math.sqrt(lx*lx+ly*ly+lz*lz)
+    lx/=llen; ly/=llen; lz/=llen
+    var drawn=[], i
+    for (i=0;i<faces.length;i++) {
+      var f=faces[i]
+      var p0=root.rotatePoint(f.x0,f.y0,f.z0,cx,sx,cy,sy)
+      var p1=root.rotatePoint(f.x1,f.y1,f.z1,cx,sx,cy,sy)
+      var p2=root.rotatePoint(f.x2,f.y2,f.z2,cx,sx,cy,sy)
+      var p3=f.tri ? p2 : root.rotatePoint(f.x3,f.y3,f.z3,cx,sx,cy,sy)
+      var nn=root.rotatePoint(f.nx,f.ny,f.nz,cx,sx,cy,sy)
+      var nlen=Math.sqrt(nn.x*nn.x+nn.y*nn.y+nn.z*nn.z) || 1
+      var shade=Math.abs((nn.x*lx+nn.y*ly+nn.z*lz)/nlen)
+      drawn.push({
+        x0:width/2+p0.x*scale, y0:height/2-p0.y*scale,
+        x1:width/2+p1.x*scale, y1:height/2-p1.y*scale,
+        x2:width/2+p2.x*scale, y2:height/2-p2.y*scale,
+        x3:width/2+p3.x*scale, y3:height/2-p3.y*scale,
+        z:(p0.z+p1.z+p2.z+(f.tri?p2.z:p3.z))/(f.tri?3:4),
+        color:root.shadePaint(Molecule.color(f.atom,root.colorScheme,chainMap), shade),
+        tri:!!f.tri
+      })
+    }
+    drawn.sort(function(a,b){return a.z-b.z})
     ctx.globalAlpha=1
+    for (i=0;i<drawn.length;i++) {
+      var d=drawn[i]
+      ctx.beginPath()
+      ctx.moveTo(d.x0,d.y0)
+      ctx.lineTo(d.x1,d.y1)
+      ctx.lineTo(d.x2,d.y2)
+      if (!d.tri) ctx.lineTo(d.x3,d.y3)
+      ctx.closePath()
+      ctx.fillStyle=d.color
+      ctx.strokeStyle=d.color
+      ctx.lineWidth=0.65
+      ctx.fill()
+      ctx.stroke()
+    }
   }
 
-  function drawSheetArrow(ctx, points, color, ribbonWidth) {
-    if (!points || points.length < 2) { drawCartoonRibbon(ctx,points,color,ribbonWidth); return }
-    var left=[], right=[], bodyEnd=Math.max(0,points.length-2)
-    for (var i=0;i<=bodyEnd;i++) {
-      var before=points[Math.max(0,i-1)], after=points[Math.min(points.length-1,i+1)]
-      var dx=after.x-before.x, dy=after.y-before.y, length=Math.max(0.001,Math.sqrt(dx*dx+dy*dy))
-      var half=ribbonWidth*0.62, nx=-dy/length, ny=dx/length
-      left.push({x:points[i].x+nx*half,y:points[i].y+ny*half})
-      right.push({x:points[i].x-nx*half,y:points[i].y-ny*half})
-    }
-    var tip=points[points.length-1]
-    ctx.beginPath(); ctx.moveTo(left[0].x,left[0].y)
-    for (i=1;i<left.length;i++) ctx.lineTo(left[i].x,left[i].y)
-    ctx.lineTo(tip.x,tip.y)
-    for (i=right.length-1;i>=0;i--) ctx.lineTo(right[i].x,right[i].y)
-    ctx.closePath(); ctx.globalAlpha=0.96; ctx.fillStyle=color; ctx.fill()
-    ctx.globalAlpha=0.32; ctx.strokeStyle="#ffffff"; ctx.lineWidth=1.2; ctx.stroke(); ctx.globalAlpha=1
-  }
-
-  function drawHelix(ctx, points, color, ribbonWidth) {
-    if (!points || points.length < 2) { drawCartoonRibbon(ctx,points,color,ribbonWidth); return }
-    if (!smoothPath(ctx,points)) return
-    ctx.globalAlpha=0.55; ctx.strokeStyle="#05070d"; ctx.lineWidth=ribbonWidth+5; ctx.stroke()
-    smoothPath(ctx,points); ctx.globalAlpha=0.98; ctx.strokeStyle=color; ctx.lineWidth=ribbonWidth; ctx.stroke()
-    for (var i=1;i<points.length-1;i+=2) {
-      var before=points[i-1], after=points[i+1], dx=after.x-before.x, dy=after.y-before.y
-      var length=Math.max(0.001,Math.sqrt(dx*dx+dy*dy)), nx=-dy/length, ny=dx/length
-      ctx.beginPath(); ctx.moveTo(points[i].x-nx*ribbonWidth*0.48,points[i].y-ny*ribbonWidth*0.48)
-      ctx.lineTo(points[i].x+nx*ribbonWidth*0.48,points[i].y+ny*ribbonWidth*0.48)
-      ctx.globalAlpha=0.35; ctx.strokeStyle="#ffffff"; ctx.lineWidth=Math.max(1.2,ribbonWidth*0.16); ctx.stroke()
-    }
-    ctx.globalAlpha=1
-  }
   function cycleColor() {
     colorScheme = colorScheme === "chain" ? "element" : colorScheme === "element" ? "bfactor" : "chain"
     viewer.requestPaint()
@@ -308,34 +297,8 @@ Item {
                 projected.push({x:width/2+x*scale, y:height/2-y*scale, z:z, atom:a, color:Molecule.color(a,root.colorScheme,chainMap)})
               }
               ctx.lineCap="round"; ctx.lineJoin="round"
-              if (root.renderMode === "cartoon") {
-                var ribbons=[], active={}
-                for (i=0; i<projected.length; i++) {
-                  var rp=projected[i]
-                  if (rp.atom.het || (rp.atom.name !== "CA" && rp.atom.name !== "P")) continue
-                  var prior=active[rp.atom.chain]
-                  var disconnected=true
-                  if (prior && prior.points.length) {
-                    var pa=prior.points[prior.points.length-1].atom
-                    var rdx=rp.atom.x-pa.x, rdy=rp.atom.y-pa.y, rdz=rp.atom.z-pa.z
-                    disconnected=Math.sqrt(rdx*rdx+rdy*rdy+rdz*rdz)>5.0
-                  }
-                  var secondary=rp.atom.secondary || "coil"
-                  if (!prior || disconnected || prior.secondary !== secondary) {
-                    prior={points:[], color:rp.color, depth:0, secondary:secondary}
-                    ribbons.push(prior); active[rp.atom.chain]=prior
-                  }
-                  prior.points.push(rp); prior.depth+=rp.z
-                }
-                ribbons.sort(function(a,b){return a.depth/a.points.length-b.depth/b.points.length})
-                var ribbonWidth=Math.max(6,Math.min(20,10*root.zoom))
-                for (i=0; i<ribbons.length; i++) {
-                  var ribbon=ribbons[i]
-                  if (ribbon.secondary === "helix") root.drawHelix(ctx,ribbon.points,ribbon.color,ribbonWidth*1.35)
-                  else if (ribbon.secondary === "sheet") root.drawSheetArrow(ctx,ribbon.points,ribbon.color,ribbonWidth)
-                  else root.drawCartoonRibbon(ctx,ribbon.points,ribbon.color,ribbonWidth*0.36)
-                }
-              }
+              if (root.renderMode === "cartoon")
+                root.drawCartoon(ctx,width,height,scale,cx,sx,cy,sy,chainMap)
               if (root.renderMode === "backbone" || root.renderMode === "wireframe") {
                 var previous={}
                 for (i=0; i<projected.length; i++) {

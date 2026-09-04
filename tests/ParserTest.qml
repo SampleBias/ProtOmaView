@@ -41,6 +41,47 @@ QtObject {
     check(c.ligandCount === 1, "mmCIF ligand count")
     check(c.atoms[0].secondary === "sheet", "mmCIF sheet assignment")
     check(c.secondary.sheet === 1, "mmCIF sheet residue count")
+
+    function padInt(n, w) {
+      var s=String(n)
+      while (s.length<w) s=" "+s
+      return s
+    }
+    function padNum(n, w) {
+      var s=Number(n).toFixed(3)
+      while (s.length<w) s=" "+s
+      return s
+    }
+    function caAtom(serial, resn, x, y, z) {
+      return "ATOM  "+padInt(serial,5)+"  CA  ALA A"+padInt(resn,4)+"    "+padNum(x,8)+padNum(y,8)+padNum(z,8)+"  1.00 20.00           C  "
+    }
+
+    var helixLines=[]
+    for (var i=0;i<12;i++) {
+      var th=i*100*Math.PI/180
+      helixLines.push(caAtom(i+1, i+1, 2.3*Math.cos(th), 2.3*Math.sin(th), i*1.5))
+    }
+    var h = Molecule.parse(helixLines.join("\n"), "helix.pdb")
+    check(h.secondary.helix >= 5, "geometric helix assignment")
+    check(h.cartoon && h.cartoon.length > 20, "helix cartoon mesh")
+    var helixFaces=0
+    for (i=0;i<h.cartoon.length;i++) if (h.cartoon[i].secondary === "helix") helixFaces++
+    check(helixFaces > 0, "helix cartoon faces")
+    check(h.cartoon[0].atom && h.cartoon[0].atom.name === "CA", "cartoon face atom")
+
+    var strandLines=[]
+    for (i=0;i<8;i++) strandLines.push(caAtom(i+1, i+1, (i%2===0)?0.85:-0.85, 0, i*3.3))
+    var s = Molecule.parse(strandLines.join("\n"), "strand.pdb")
+    check(s.secondary.sheet >= 4, "geometric sheet assignment")
+    var sheetFaces=0
+    for (i=0;i<s.cartoon.length;i++) if (s.cartoon[i].secondary === "sheet") sheetFaces++
+    check(sheetFaces > 0, "sheet cartoon faces")
+
+    var forced=["HELIX    1   1 ALA A    1  ALA A    8  1                                   8"].concat(strandLines)
+    var o = Molecule.parse(forced.join("\n"), "forced.pdb")
+    check(o.atoms[0].secondary === "helix", "file HELIX not overwritten by geometry")
+    check(o.secondary.helix === 8, "file helix residue count")
+
     console.log("Parser tests passed")
     Qt.quit()
   }
