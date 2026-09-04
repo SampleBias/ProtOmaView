@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import qs.Ui
 
 BarWidget {
@@ -26,18 +25,11 @@ BarWidget {
       anchors.centerIn: parent
       width: 20
       height: 20
-      visible: false
+      visible: true
       fillMode: Image.PreserveAspectFit
       source: Qt.resolvedUrl("assets/protomaview-icon.png")
       sourceSize.width: 64
       sourceSize.height: 64
-    }
-
-    MultiEffect {
-      anchors.fill: iconSource
-      source: iconSource
-      colorization: 1
-      colorizationColor: "#eef1ff"
     }
 
     onPressed: function(buttonCode) {
