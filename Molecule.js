@@ -35,12 +35,28 @@ function makeAtom(x, y, z, name, element, chain, residue, residueNumber, het, bf
   }
 }
 
+function addRange(ranges, type, startChain, startNumber, endChain, endNumber) {
+  startChain=cleanToken(startChain) || "_"; endChain=cleanToken(endChain) || startChain
+  startNumber=parseInt(startNumber,10); endNumber=parseInt(endNumber,10)
+  if (!isFinite(startNumber) || !isFinite(endNumber)) return
+  ranges.push({type:type, startChain:startChain, startNumber:startNumber,
+               endChain:endChain, endNumber:endNumber})
+}
+
 function parsePdb(text) {
-  var atoms = []
+  var atoms = [], ranges=[]
   var lines = String(text || "").split(/\r?\n/)
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i]
     var record = line.substring(0, 6).trim()
+    if (record === "HELIX") {
+      addRange(ranges,"helix",line.substring(19,20),line.substring(21,25),line.substring(31,32),line.substring(33,37))
+      continue
+    }
+    if (record === "SHEET") {
+      addRange(ranges,"sheet",line.substring(21,22),line.substring(22,26),line.substring(32,33),line.substring(33,37))
+      continue
+    }
     if (record !== "ATOM" && record !== "HETATM") continue
     var alt = line.length > 16 ? line.charAt(16) : " "
     if (alt !== " " && alt !== "A" && alt !== ".") continue
@@ -50,7 +66,7 @@ function parsePdb(text) {
                         line.substring(22, 26), record === "HETATM", line.substring(60, 66))
     if (isFinite(atom.x) && isFinite(atom.y) && isFinite(atom.z)) atoms.push(atom)
   }
-  return atoms
+  return {atoms:atoms, ranges:ranges}
 }
 
 function tokenizeCif(text) {
@@ -92,14 +108,38 @@ function firstIndex(headers, names) {
   return -1
 }
 
+function loopValue(headers, row, names) {
+  var index=firstIndex(headers,names)
+  return index >= 0 ? row[index] : ""
+}
+
 function parseCif(text) {
-  var tokens = tokenizeCif(text), atoms = [], p = 0
+  var tokens = tokenizeCif(text), atoms = [], ranges=[], p = 0
   while (p < tokens.length) {
     if (tokens[p] !== "loop_") { p++; continue }
     p++
     var headers = []
     while (p < tokens.length && tokens[p].charAt(0) === "_") headers.push(tokens[p++])
-    if (!headers.length || headers[0].indexOf("_atom_site.") !== 0) {
+    if (!headers.length) continue
+    var width = headers.length
+    if (headers[0].indexOf("_struct_conf.") === 0 || headers[0].indexOf("_struct_sheet_range.") === 0) {
+      while (p + width <= tokens.length && tokens[p] !== "loop_" && tokens[p].charAt(0) !== "_") {
+        var annotation=tokens.slice(p,p+width); p+=width
+        var isHelix=headers[0].indexOf("_struct_conf.") === 0
+        if (isHelix) {
+          var conf=cleanToken(loopValue(headers,annotation,["_struct_conf.conf_type_id"]))
+          if (conf && conf.toUpperCase().indexOf("HELX") !== 0) continue
+        }
+        var prefix=isHelix ? "_struct_conf." : "_struct_sheet_range."
+        addRange(ranges,isHelix ? "helix" : "sheet",
+          loopValue(headers,annotation,[prefix+"beg_auth_asym_id",prefix+"beg_label_asym_id"]),
+          loopValue(headers,annotation,[prefix+"beg_auth_seq_id",prefix+"beg_label_seq_id"]),
+          loopValue(headers,annotation,[prefix+"end_auth_asym_id",prefix+"end_label_asym_id"]),
+          loopValue(headers,annotation,[prefix+"end_auth_seq_id",prefix+"end_label_seq_id"]))
+      }
+      continue
+    }
+    if (headers[0].indexOf("_atom_site.") !== 0) {
       while (p < tokens.length && tokens[p] !== "loop_" && tokens[p].charAt(0) !== "_") p++
       continue
     }
@@ -115,7 +155,6 @@ function parseCif(text) {
     var ib = firstIndex(headers, ["_atom_site.B_iso_or_equiv"])
     var ialt = firstIndex(headers, ["_atom_site.label_alt_id", "_atom_site.auth_alt_id"])
     if (ix < 0 || iy < 0 || iz < 0 || iname < 0) throw new Error("mmCIF atom coordinates are incomplete")
-    var width = headers.length
     while (p + width <= tokens.length && tokens[p] !== "loop_" && tokens[p].charAt(0) !== "_") {
       var row = tokens.slice(p, p + width); p += width
       var alt = ialt >= 0 ? cleanToken(row[ialt]) : ""
@@ -126,12 +165,32 @@ function parseCif(text) {
                           ib >= 0 ? row[ib] : 0)
       if (isFinite(atom.x) && isFinite(atom.y) && isFinite(atom.z)) atoms.push(atom)
     }
-    if (atoms.length) return atoms
   }
-  return atoms
+  return {atoms:atoms, ranges:ranges}
 }
 
-function summarize(atoms) {
+function assignSecondaryStructure(atoms,ranges) {
+  var counts={helix:0,sheet:0,coil:0}, seen={}
+  for (var i=0;i<atoms.length;i++) {
+    var atom=atoms[i], type="coil"
+    if (!atom.het) {
+      for (var j=0;j<ranges.length;j++) {
+        var range=ranges[j]
+        if (atom.chain === range.startChain && atom.chain === range.endChain &&
+            atom.residueNumber >= range.startNumber && atom.residueNumber <= range.endNumber) {
+          type=range.type
+          if (type === "helix") break
+        }
+      }
+    }
+    atom.secondary=type
+    var key=atom.chain+":"+atom.residueNumber+":"+atom.residue
+    if (!atom.het && !seen[key]) { seen[key]=true; counts[type]++ }
+  }
+  return counts
+}
+
+function summarize(atoms,ranges) {
   if (!atoms.length) throw new Error("No atoms found in this structure")
   var sx=0, sy=0, sz=0, chains={}, residues={}, polymer=0, ligands=0
   for (var i=0; i<atoms.length; i++) {
@@ -144,14 +203,16 @@ function summarize(atoms) {
     a=atoms[i]; a.x-=center.x; a.y-=center.y; a.z-=center.z
     radius=Math.max(radius, Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z))
   }
+  var secondary=assignSecondaryStructure(atoms,ranges || [])
   return {atoms:atoms, atomCount:atoms.length, chainCount:Object.keys(chains).length,
-          residueCount:Object.keys(residues).length, polymerCount:polymer, ligandCount:ligands, radius:radius}
+          residueCount:Object.keys(residues).length, polymerCount:polymer, ligandCount:ligands,
+          secondary:secondary, radius:radius}
 }
 
 function parse(text, fileName) {
   var lower=String(fileName || "").toLowerCase()
-  var atoms=(lower.endsWith(".cif") || lower.endsWith(".mmcif") || /^\s*data_/m.test(text)) ? parseCif(text) : parsePdb(text)
-  return summarize(atoms)
+  var parsed=(lower.endsWith(".cif") || lower.endsWith(".mmcif") || /^\s*data_/m.test(text)) ? parseCif(text) : parsePdb(text)
+  return summarize(parsed.atoms,parsed.ranges)
 }
 
 function color(atom, scheme, chainMap) {

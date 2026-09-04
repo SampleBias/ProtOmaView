@@ -7,7 +7,7 @@ An Omarchy Quattro overlay for opening and exploring protein structures locally.
 - PDB, ENT, CIF, and mmCIF input
 - Drag-and-drop and an in-overlay file browser
 - Interactive mouse rotation and wheel zoom
-- Cartoon ribbon, backbone, atom, and wireframe views
+- Secondary-structure cartoon view with α-helices, β-sheet arrows, and coils, plus backbone, atom, and wireframe views
 - Chain, element, and B-factor coloring
 - Ligand display and basic structure statistics
 - Pure QML/JavaScript: no build step or runtime dependency beyond Omarchy Quattro

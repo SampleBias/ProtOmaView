@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.samplebias.protomaview",
   "name": "ProtOmaView",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": "SampleBias",
   "license": "MIT",
   "description": "Drop a PDB or mmCIF file into an interactive, local 3D protein viewer.",

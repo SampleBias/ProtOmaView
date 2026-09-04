@@ -8,6 +8,7 @@ QtObject {
 
   Component.onCompleted: {
     var pdb = [
+      "HELIX    1   1 GLY A    1  GLY A    1  1                                   1",
       "ATOM      1  N   GLY A   1      11.104  13.207   9.100  1.00 20.00           N  ",
       "ATOM      2  CA  GLY A   1      12.000  12.100   9.400  1.00 21.00           C  ",
       "HETATM    3  O   HOH B   2      14.000  11.000   8.000  1.00 30.00           O  "
@@ -17,9 +18,15 @@ QtObject {
     check(p.chainCount === 2, "PDB chain count")
     check(p.residueCount === 2, "PDB residue count")
     check(p.ligandCount === 1, "PDB ligand count")
+    check(p.atoms[0].secondary === "helix", "PDB HELIX assignment")
+    check(p.secondary.helix === 1, "PDB helix residue count")
 
     var cif = [
       "data_tiny", "#", "loop_",
+      "_struct_sheet_range.sheet_id", "_struct_sheet_range.id",
+      "_struct_sheet_range.beg_auth_asym_id", "_struct_sheet_range.beg_auth_seq_id",
+      "_struct_sheet_range.end_auth_asym_id", "_struct_sheet_range.end_auth_seq_id",
+      "A 1 A 1 A 1", "#", "loop_",
       "_atom_site.group_PDB", "_atom_site.id", "_atom_site.type_symbol",
       "_atom_site.label_atom_id", "_atom_site.label_alt_id", "_atom_site.label_comp_id",
       "_atom_site.auth_asym_id", "_atom_site.auth_seq_id",
@@ -32,6 +39,8 @@ QtObject {
     check(c.atomCount === 3, "mmCIF atom count")
     check(c.chainCount === 2, "mmCIF chain count")
     check(c.ligandCount === 1, "mmCIF ligand count")
+    check(c.atoms[0].secondary === "sheet", "mmCIF sheet assignment")
+    check(c.secondary.sheet === 1, "mmCIF sheet residue count")
     console.log("Parser tests passed")
     Qt.quit()
   }
