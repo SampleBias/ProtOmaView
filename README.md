@@ -27,7 +27,7 @@ After enabling the plugin, place its widget on the bar:
 omarchy bar put io.github.samplebias.protomaview --section right
 ```
 
-Click the **P** button in the toolbar to open or close the viewer. You can also summon it from a terminal:
+Click the protein-ribbon icon in the toolbar to open or close the viewer. You can also summon it from a terminal:
 
 ```sh
 omarchy-shell shell summon io.github.samplebias.protomaview '{}'

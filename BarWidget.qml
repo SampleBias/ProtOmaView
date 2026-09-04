@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import qs.Ui
 
 BarWidget {
@@ -12,10 +13,33 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "P"
-    fontFamily: root.bar ? root.bar.fontFamily : "monospace"
+    text: ""
+    labelVisible: false
+    hasVisualContent: true
+    keepSpace: true
+    fixedWidth: 26
     horizontalMargin: 8
     tooltipText: "ProtOmaView"
+
+    Image {
+      id: iconSource
+      anchors.centerIn: parent
+      width: 20
+      height: 20
+      visible: false
+      fillMode: Image.PreserveAspectFit
+      source: Qt.resolvedUrl("assets/protomaview-icon.png")
+      sourceSize.width: 64
+      sourceSize.height: 64
+    }
+
+    MultiEffect {
+      anchors.fill: iconSource
+      source: iconSource
+      colorization: 1
+      colorizationColor: button.foreground
+    }
+
     onPressed: function(buttonCode) {
       if (!root.bar || buttonCode !== Qt.LeftButton) return
       root.bar.run("omarchy-shell shell toggle io.github.samplebias.protomaview '{}'")
