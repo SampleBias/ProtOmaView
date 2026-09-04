@@ -3,7 +3,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Dialogs
+import Qt.labs.folderlistmodel
 import qs.Commons
 import "Molecule.js" as Molecule
 
@@ -13,6 +13,8 @@ Item {
   property bool opened: false
   property bool dragActive: false
   property bool loading: false
+  property bool filePickerOpen: false
+  property url currentFolder: "file://" + Quickshell.env("HOME")
   property string filePath: ""
   property string fileName: ""
   property string errorMessage: ""
@@ -56,6 +58,14 @@ Item {
   }
 
   function validPath(path) { return /\.(pdb|ent|cif|mmcif)$/i.test(path) }
+  function openPicker() {
+    filePickerOpen = true
+    Qt.callLater(function() { pickerList.forceActiveFocus() })
+  }
+  function closePicker() {
+    filePickerOpen = false
+    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+  }
   function loadPath(path) {
     path = localPath(path)
     if (!validPath(path)) {
@@ -99,11 +109,15 @@ Item {
     onLoadFailed: function(error) { root.loading=false; root.structure=null; root.errorMessage="Could not read file: " + error }
   }
 
-  FileDialog {
-    id: fileDialog
-    title: "Open a protein structure"
-    nameFilters: ["Protein structures (*.pdb *.ent *.cif *.mmcif)", "All files (*)"]
-    onAccepted: root.loadPath(selectedFile)
+  FolderListModel {
+    id: folderModel
+    folder: root.currentFolder
+    nameFilters: ["*.pdb", "*.ent", "*.cif", "*.mmcif"]
+    showDirs: true
+    showDirsFirst: true
+    showDotAndDotDot: true
+    showHidden: false
+    sortField: FolderListModel.Name
   }
 
   PanelWindow {
@@ -124,7 +138,7 @@ Item {
       focus: true
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) { root.requestClose(); event.accepted=true }
-        else if (event.key === Qt.Key_O && (event.modifiers & Qt.ControlModifier)) { fileDialog.open(); event.accepted=true }
+        else if (event.key === Qt.Key_O && (event.modifiers & Qt.ControlModifier)) { root.openPicker(); event.accepted=true }
         else if (event.key === Qt.Key_R) { root.rotationX=-0.28; root.rotationY=0.55; root.zoom=1; viewer.requestPaint(); event.accepted=true }
         else if (event.key === Qt.Key_M) { root.cycleMode(); event.accepted=true }
         else if (event.key === Qt.Key_C) { root.cycleColor(); event.accepted=true }
@@ -172,7 +186,7 @@ Item {
               MouseArea {
                 id: buttonMouse; anchors.fill: parent; hoverEnabled: true
                 onClicked: {
-                  if (modelData.action === "open") fileDialog.open()
+                  if (modelData.action === "open") root.openPicker()
                   else if (modelData.action === "mode") root.cycleMode()
                   else if (modelData.action === "color") root.cycleColor()
                   else root.requestClose()
@@ -278,7 +292,7 @@ Item {
             Rectangle {
               anchors.horizontalCenter: parent.horizontalCenter; width: 148; height: 38; radius: 9; color: root.accent
               Text { anchors.centerIn: parent; text: "CHOOSE FILE"; color: root.background; font.family: root.fontFamily; font.pixelSize: 12; font.bold: true }
-              MouseArea { anchors.fill: parent; onClicked: fileDialog.open() }
+              MouseArea { anchors.fill: parent; onClicked: root.openPicker() }
             }
             Text { anchors.horizontalCenter: parent.horizontalCenter; visible: root.errorMessage.length > 0; text: root.errorMessage; color: "#ff6b78"; font.family: root.fontFamily; font.pixelSize: 12 }
           }
@@ -294,6 +308,85 @@ Item {
               id: stats; anchors.centerIn: parent
               text: root.structure ? root.structure.atomCount.toLocaleString()+" ATOMS  ·  "+root.structure.residueCount.toLocaleString()+" RESIDUES  ·  "+root.structure.chainCount+" CHAINS" : ""
               color: root.foreground; font.family: root.fontFamily; font.pixelSize: 11; font.bold: true
+            }
+          }
+        }
+
+        Rectangle {
+          id: picker
+          z: 50
+          visible: root.filePickerOpen
+          anchors.fill: parent
+          anchors.margins: 18
+          radius: 14
+          color: root.background
+          border.width: 1
+          border.color: root.borderColor
+
+          Column {
+            anchors.fill: parent
+            anchors.margins: 18
+            spacing: 10
+
+            Row {
+              width: parent.width
+              spacing: 10
+              Rectangle {
+                width: 42; height: 34; radius: 8
+                color: upMouse.containsMouse ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18) : "transparent"
+                border.width: 1; border.color: root.borderColor
+                Text { anchors.centerIn: parent; text: "↑"; color: root.foreground; font.pixelSize: 18 }
+                MouseArea {
+                  id: upMouse; anchors.fill: parent; hoverEnabled: true
+                  onClicked: root.currentFolder = folderModel.parentFolder
+                }
+              }
+              Text {
+                width: parent.width - 108; height: 34; verticalAlignment: Text.AlignVCenter
+                text: root.localPath(root.currentFolder); color: root.foreground
+                font.family: root.fontFamily; font.pixelSize: 12; elide: Text.ElideMiddle
+              }
+              Rectangle {
+                width: 46; height: 34; radius: 8; color: "transparent"
+                border.width: 1; border.color: root.borderColor
+                Text { anchors.centerIn: parent; text: "ESC"; color: root.muted; font.family: root.fontFamily; font.pixelSize: 10 }
+                MouseArea { anchors.fill: parent; onClicked: root.closePicker() }
+              }
+            }
+
+            ListView {
+              id: pickerList
+              width: parent.width
+              height: parent.height - 44
+              clip: true
+              model: folderModel
+              focus: root.filePickerOpen
+              currentIndex: 0
+              Keys.onEscapePressed: root.closePicker()
+              Keys.onReturnPressed: function() {
+                if (currentIndex < 0) return
+                if (folderModel.isFolder(currentIndex)) root.currentFolder = folderModel.get(currentIndex, "fileUrl")
+                else { root.loadPath(folderModel.get(currentIndex, "fileUrl")); root.closePicker() }
+              }
+              delegate: Rectangle {
+                required property int index
+                required property string fileName
+                required property url fileUrl
+                required property bool fileIsDir
+                width: pickerList.width; height: 42; radius: 7
+                color: pickerList.currentIndex === index ? Qt.rgba(root.accent.r,root.accent.g,root.accent.b,0.16) : rowMouse.containsMouse ? Qt.rgba(root.foreground.r,root.foreground.g,root.foreground.b,0.06) : "transparent"
+                Text { x: 10; anchors.verticalCenter: parent.verticalCenter; text: fileIsDir ? "▸" : "·"; color: fileIsDir ? root.accent : root.muted; font.pixelSize: 16 }
+                Text { x: 34; anchors.verticalCenter: parent.verticalCenter; width: parent.width-44; text: fileName; color: root.foreground; font.family: root.fontFamily; font.pixelSize: 13; elide: Text.ElideMiddle }
+                MouseArea {
+                  id: rowMouse; anchors.fill: parent; hoverEnabled: true
+                  onEntered: pickerList.currentIndex = index
+                  onClicked: {
+                    if (fileIsDir) root.currentFolder = fileUrl
+                    else { root.loadPath(fileUrl); root.closePicker() }
+                  }
+                }
+              }
+              ScrollBar.vertical: ScrollBar {}
             }
           }
         }
