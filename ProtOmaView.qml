@@ -22,7 +22,7 @@ Item {
   property real rotationX: -0.28
   property real rotationY: 0.55
   property real zoom: 1.0
-  property string renderMode: "backbone"
+  property string renderMode: "cartoon"
   property string colorScheme: "chain"
   property bool showLigands: true
   property point lastPointer: Qt.point(0, 0)
@@ -94,8 +94,53 @@ Item {
   }
 
   function cycleMode() {
-    renderMode = renderMode === "backbone" ? "atoms" : renderMode === "atoms" ? "wireframe" : "backbone"
+    renderMode = renderMode === "cartoon" ? "backbone" : renderMode === "backbone" ? "atoms" : renderMode === "atoms" ? "wireframe" : "cartoon"
     viewer.requestPaint()
+  }
+
+  function smoothPath(ctx, points) {
+    if (!points || points.length < 2) return false
+    ctx.beginPath()
+    ctx.moveTo(points[0].x, points[0].y)
+    for (var i=1; i<points.length-1; i++) {
+      var mx=(points[i].x+points[i+1].x)/2
+      var my=(points[i].y+points[i+1].y)/2
+      ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my)
+    }
+    ctx.lineTo(points[points.length-1].x, points[points.length-1].y)
+    return true
+  }
+
+  function drawCartoonRibbon(ctx, points, color, ribbonWidth) {
+    if (!smoothPath(ctx, points)) return
+    ctx.globalAlpha=0.5
+    ctx.strokeStyle="#05070d"
+    ctx.lineWidth=ribbonWidth+4
+    ctx.stroke()
+    smoothPath(ctx, points)
+    ctx.globalAlpha=0.96
+    ctx.strokeStyle=color
+    ctx.lineWidth=ribbonWidth
+    ctx.stroke()
+    smoothPath(ctx, points)
+    ctx.globalAlpha=0.22
+    ctx.strokeStyle="#ffffff"
+    ctx.lineWidth=Math.max(1, ribbonWidth*0.18)
+    ctx.stroke()
+
+    if (points.length < 3) return
+    var tip=points[points.length-1], from=points[points.length-2]
+    var dx=tip.x-from.x, dy=tip.y-from.y, length=Math.sqrt(dx*dx+dy*dy)
+    if (length < 0.1) return
+    dx/=length; dy/=length
+    var nx=-dy, ny=dx, head=Math.max(8,ribbonWidth*1.45), half=Math.max(5,ribbonWidth*0.72)
+    ctx.beginPath()
+    ctx.moveTo(tip.x+dx*head*0.55,tip.y+dy*head*0.55)
+    ctx.lineTo(tip.x-dx*head+nx*half,tip.y-dy*head+ny*half)
+    ctx.lineTo(tip.x-dx*head-nx*half,tip.y-dy*head-ny*half)
+    ctx.closePath()
+    ctx.globalAlpha=0.96; ctx.fillStyle=color; ctx.fill()
+    ctx.globalAlpha=1
   }
   function cycleColor() {
     colorScheme = colorScheme === "chain" ? "element" : colorScheme === "element" ? "bfactor" : "chain"
@@ -227,6 +272,28 @@ Item {
                 projected.push({x:width/2+x*scale, y:height/2-y*scale, z:z, atom:a, color:Molecule.color(a,root.colorScheme,chainMap)})
               }
               ctx.lineCap="round"; ctx.lineJoin="round"
+              if (root.renderMode === "cartoon") {
+                var ribbons=[], active={}
+                for (i=0; i<projected.length; i++) {
+                  var rp=projected[i]
+                  if (rp.atom.het || (rp.atom.name !== "CA" && rp.atom.name !== "P")) continue
+                  var prior=active[rp.atom.chain]
+                  var disconnected=true
+                  if (prior && prior.points.length) {
+                    var pa=prior.points[prior.points.length-1].atom
+                    var rdx=rp.atom.x-pa.x, rdy=rp.atom.y-pa.y, rdz=rp.atom.z-pa.z
+                    disconnected=Math.sqrt(rdx*rdx+rdy*rdy+rdz*rdz)>5.0
+                  }
+                  if (!prior || disconnected) {
+                    prior={points:[], color:rp.color, depth:0}
+                    ribbons.push(prior); active[rp.atom.chain]=prior
+                  }
+                  prior.points.push(rp); prior.depth+=rp.z
+                }
+                ribbons.sort(function(a,b){return a.depth/a.points.length-b.depth/b.points.length})
+                var ribbonWidth=Math.max(5,Math.min(18,9*root.zoom))
+                for (i=0; i<ribbons.length; i++) root.drawCartoonRibbon(ctx,ribbons[i].points,ribbons[i].color,ribbonWidth)
+              }
               if (root.renderMode === "backbone" || root.renderMode === "wireframe") {
                 var previous={}
                 for (i=0; i<projected.length; i++) {
