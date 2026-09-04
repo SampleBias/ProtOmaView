@@ -2,13 +2,21 @@
   "schemaVersion": 1,
   "id": "io.github.samplebias.protomaview",
   "name": "ProtOmaView",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "SampleBias",
   "license": "MIT",
   "description": "Drop a PDB or mmCIF file into an interactive, local 3D protein viewer.",
-  "kinds": ["overlay"],
+  "kinds": ["overlay", "bar-widget"],
   "keepLoaded": true,
   "entryPoints": {
-    "overlay": "ProtOmaView.qml"
+    "overlay": "ProtOmaView.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "ProtOmaView",
+    "description": "Open the protein structure viewer",
+    "category": "Utilities",
+    "allowMultiple": false,
+    "defaultSection": "right"
   }
 }

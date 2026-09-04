@@ -11,6 +11,7 @@ An Omarchy Quattro overlay for opening and exploring protein structures locally.
 - Chain, element, and B-factor coloring
 - Ligand display and basic structure statistics
 - Pure QML/JavaScript: no build step or runtime dependency beyond Omarchy Quattro
+- Toolbar widget for opening and closing the viewer with one click
 
 ## Install
 
@@ -19,6 +20,14 @@ omarchy plugin add https://github.com/SampleBias/ProtOmaView.git --enable
 ```
 
 ## Open
+
+After enabling the plugin, place its widget on the bar:
+
+```sh
+omarchy bar put io.github.samplebias.protomaview --section right
+```
+
+Click the **P** button in the toolbar to open or close the viewer. You can also summon it from a terminal:
 
 ```sh
 omarchy-shell shell summon io.github.samplebias.protomaview '{}'
