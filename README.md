@@ -1,67 +1,71 @@
 # ProtOmaView
 
-An Omarchy Quattro overlay for opening and exploring protein structures locally. Drop a PDB or mmCIF file onto the viewer, or choose one with the file picker. No structure data leaves your machine.
+Open a protein structure from the Omarchy bar and rotate it in 3D. Follow the fold in cartoon view, then press a key to see individual atoms. ProtOmaView reads and renders PDB and mmCIF files locally, so it works offline after installation.
 
-## Features
+![Human ubiquitin in ProtOmaView’s cartoon view, with a coiled helix and arrows tracing the beta sheet](preview.png)
 
-- PDB, ENT, CIF, and mmCIF input
-- Drag-and-drop and an in-overlay file browser
-- Interactive mouse rotation and wheel zoom
-- Secondary-structure cartoon view with 3D α-helix tubes, β-sheet arrows, and coils, assigned from file records or Cα geometry, plus backbone, atom, and wireframe views
-- Chain, element, and B-factor coloring
-- Ligand display and basic structure statistics
-- Pure QML/JavaScript: no build step or runtime dependency beyond Omarchy Quattro
-- Toolbar widget for opening and closing the viewer with one click
+## Install and open
 
-## Install
+On Omarchy Quattro, run the following command and choose where to place the protein-ribbon icon when prompted. The plugin uses the QML and JavaScript runtime included with Quattro and needs no build step.
 
 ```sh
 omarchy plugin add https://github.com/SampleBias/ProtOmaView.git --enable
 ```
 
-## Open
+Click the ribbon icon to open the viewer. If you need to place the icon on the bar later, run `omarchy bar put io.github.samplebias.protomaview --section right`.
 
-After enabling the plugin, place its widget on the bar:
+## Try the structure in the preview
 
-```sh
-omarchy bar put io.github.samplebias.protomaview --section right
-```
+1. Save the ubiquitin coordinate file to your computer. [Download 1UBQ.pdb from the Protein Data Bank](https://files.rcsb.org/download/1UBQ.pdb)
+2. Open ProtOmaView and drop the file onto the viewer, or press **Ctrl+O** to select it. The first view shows the protein fold. Drag to see the helix from the side and scroll to zoom in on the sheet arrows.
+3. Press **M** once to trace the backbone and again to see individual atoms. In atom view, press **C** to color them by element.
 
-Click the protein-ribbon icon in the toolbar to open or close the viewer. You can also summon it from a terminal:
+The preview uses the ubiquitin structure deposited by S. Vijay-Kumar, C. E. Bugg, and W. J. Cook. [RCSB Protein Data Bank entry 1UBQ](https://www.rcsb.org/structure/1UBQ)
 
-```sh
-omarchy-shell shell summon io.github.samplebias.protomaview '{}'
-```
+## Viewing your own structures
 
-You can also open a structure directly:
+Open a `.pdb`, `.ent`, `.cif`, or `.mmcif` file. Cartoon view draws helices, sheet arrows, and coils using the file’s secondary-structure records when available. For unannotated regions, it estimates secondary structure from the positions of neighboring alpha carbons. The overlay also shows ligands and counts the atoms, residues, and chains in the file.
+
+| Control | Action |
+| --- | --- |
+| Drag / scroll | Rotate / zoom |
+| **M** | Cycle through cartoon, backbone, atoms, and wireframe |
+| **C** | Cycle through chain, element, and B-factor coloring |
+| **R** or double-click | Reset the camera |
+| **Ctrl+O** | Browse local structures |
+| **Esc** | Close the file picker or viewer |
+
+To open the viewer from a terminal, run `omarchy-shell shell summon io.github.samplebias.protomaview '{}'`. To open a particular structure, supply its absolute path in the summon payload.
 
 ```sh
 omarchy-shell shell summon io.github.samplebias.protomaview '{"path":"/absolute/path/to/structure.cif"}'
 ```
 
-## Controls
+## Update or remove
 
-| Control | Action |
-| --- | --- |
-| Drag | Rotate |
-| Mouse wheel | Zoom |
-| `M` | Cycle render mode |
-| `C` | Cycle color scheme |
-| `R` | Reset camera |
-| `Ctrl+O` | Open file picker |
-| `Esc` | Close |
+Review and apply an update to the installed plugin.
+
+```sh
+omarchy plugin update io.github.samplebias.protomaview
+```
+
+To uninstall, run the removal command and confirm at the prompt. Omarchy removes the installed plugin. Structure files you opened from elsewhere stay in their original locations.
+
+```sh
+omarchy plugin remove io.github.samplebias.protomaview
+```
 
 ## Development
 
-Validate the repository before installation:
+From a checkout, validate the manifest and lint the overlay.
 
 ```sh
 omarchy plugin validate .
 qmllint -I "$OMARCHY_PATH/shell" ProtOmaView.qml
 ```
 
-After installation, saved changes under `~/.config/omarchy/plugins/` hot-reload. The plugin runs inside the Omarchy shell with your user permissions and reads only the structure path you select or pass in the summon payload.
+The plugin runs inside the Omarchy shell with your user permissions. The file picker lists local folders, and the viewer reads the structure you open. Edits under `~/.config/omarchy/plugins/` hot-reload.
 
 ## License
 
-MIT
+[MIT](LICENSE)

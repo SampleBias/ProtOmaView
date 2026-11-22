@@ -4,7 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Controls
 import Qt.labs.folderlistmodel
-import qs.Commons
+import qs.Commons as Commons
 import "Molecule.js" as Molecule
 
 Item {
@@ -27,12 +27,12 @@ Item {
   property bool showLigands: true
   property point lastPointer: Qt.point(0, 0)
 
-  readonly property color background: Color.menu.background
-  readonly property color foreground: Color.menu.text
-  readonly property color accent: Color.accent
-  readonly property color borderColor: Color.menu.border
+  readonly property color background: Commons.Color.menu.background
+  readonly property color foreground: Commons.Color.menu.text
+  readonly property color accent: Commons.Color.accent
+  readonly property color borderColor: Commons.Color.menu.border
   readonly property color muted: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.58)
-  readonly property string fontFamily: Style.font.family
+  readonly property string fontFamily: Commons.Style.font.family
 
   function open(payloadJson) {
     opened = true
