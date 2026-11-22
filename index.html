@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Watch ProtOmaView rotate and zoom protein structures, switch views, and color chains in the Omarchy desktop overlay.">
+  <title>ProtOmaView demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #080c0f; color: #eef4f4; font: 1rem/1.5 Inter, system-ui, sans-serif; }
+    main { width: min(100% - 2rem, 70rem); margin: clamp(1rem, 4vw, 3.5rem) auto; }
+    header, footer { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; }
+    h1 { margin: 0 0 .65rem; font-size: clamp(1.5rem, 4vw, 2.25rem); line-height: 1.2; }
+    p { color: #b9c7c9; margin: 0; }
+    video { display: block; width: 100%; aspect-ratio: 16/9; background: #050709; border-radius: .5rem; margin-block: .75rem 1rem; }
+    a { color: #8ee3ef; text-underline-offset: .23em; }
+    a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>ProtOmaView demo</h1>
+      <a href="https://github.com/SampleBias/ProtOmaView#install-and-open">Install on Omarchy</a>
+    </header>
+    <video controls playsinline preload="metadata" poster="demo-cover.jpg" aria-label="Silent demonstration of rotating protein structures and switching views in ProtOmaView">
+      <source src="protomaview-demo.mp4" type="video/mp4">
+      <a href="protomaview-demo.mp4">Download the MP4 to watch the demo.</a>
+    </video>
+    <footer>
+      <p>2 min 12 sec · Silent screen recording</p>
+      <a href="protomaview-demo.mp4" download>Download MP4</a>
+    </footer>
+  </main>
+</body>
+</html>
